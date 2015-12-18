@@ -1,0 +1,86 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/Memory.jack
+
+/**
+ * Memory operations library.
+ */
+class Memory {
+
+    static int _heapHead;
+
+    /** Initializes memory parameters. */
+    function void init() {
+      let _heapHead = 2048;
+      do Memory.poke(_heapHead, 14336); // 0x3FFF - 0x0800
+      return;
+    }
+
+    /** Returns the value of the main memory at the given address. */
+    function int peek(int address) {
+      var Array memory;
+      let memory = 0;
+      return memory[address];
+    }
+
+    /** Sets the value of the main memory at this address
+     *  to the given value. */
+    function void poke(int address, int value) {
+      var Array memory;
+      let memory = 0;
+      let memory[address] = value;
+      return;
+    }
+
+    /** finds and allocates from the heap a memory block of the
+     *  specified size and returns a reference to its base address. */
+    function int alloc(int size) {
+      var Array free, prev;
+      let free = _heapHead;
+      if(~(size > 0)) {
+        do Sys.error(5);
+        return 0;
+      }
+      while(free[0] < (size + 1)) {
+        let prev = free;
+        let free = free[1];
+        if(free = 0) {
+          do Sys.error(6);
+          return 0;
+        }
+      }
+
+      if(free[0] < (size + 4)) {
+        let prev[1] = free[1]; // reconnect nodes
+        let free[1] = 0;
+        return free + 1; // do not need to modify block size
+      } else {
+        let free[0] = free[0] - (size + 1);
+        let free = free + free[0] + 1;
+        let free[-1] = size + 1;
+        return free;
+      }
+    }
+
+    /** De-allocates the given object and frees its space. */
+    function void deAlloc(int object) {
+      var Array segment, free;
+      var int i;
+      let segment = object - 1;
+
+      // zero-clear memories
+      while(i < (segment[0] - 1)) {
+        let segment[1 + i] = 0;
+        let i = i + 1;
+      }
+
+      // add to free list
+      let free = _heapHead;
+      while(~(free[1] = 0)) {
+        let free = free[1];
+      }
+      let free[1] = segment;
+      return;
+    }
+}

@@ -1,0 +1,135 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/Math.jack
+
+/**
+ * A basic math library.
+ */
+class Math {
+
+    static Array _powerOfTwo;
+    static int _divTemp;
+
+    /** Initializes the library. */
+    function void init() {
+      var int i, p;
+      let _powerOfTwo = Array.new(16);
+      let p = 1;
+      while(i < 16) {
+        let _powerOfTwo[i] = p;
+        let p = p + p;
+        let i = i + 1;
+      }
+      return;
+    }
+
+    /** Returns the absolute value of x. */
+    function int abs(int x) {
+      if(x > 0) {
+        return x;
+      } else {
+        return -x;
+      }
+    }
+
+    /** Returns the product of x and y. */
+    function int multiply(int x, int y) {
+      var int i, sum, shifted;
+      let i = 0;
+      let sum = 0;
+      let shifted = x;
+      while(i < 16) {
+        if(Math._bit(y, i)) {
+          let sum = sum + shifted;
+        }
+        let i = i + 1;
+        let shifted = shifted + shifted;
+      }
+      return sum;
+    }
+
+    /** Returns the integer part of x/y. */
+    function int divide(int x, int y) {
+      var boolean flag;
+
+      let flag = false;
+      if (y = 0) {
+        do Sys.error(3);
+        return 0;
+      }
+      if (x < 0) {
+        let x = -x;
+        let flag = ~flag;
+      }
+      if (y < 0) {
+        let y = -y;
+        let flag = ~flag;
+      }
+      let _divTemp = x;
+      if(flag) {
+        return -Math._divide(x, y);
+      } else {
+        return Math._divide(x, y);
+      }
+    }
+
+    /** We assume that both x and y are non-negative. */
+    function int _divide(int x, int y) {
+      var int q;
+
+      if (x < y) {
+        return 0;
+      }
+      let q = Math._divide(x, y + y);
+      if (_divTemp < y) {
+        return q + q;
+      } else {
+        let _divTemp = _divTemp - y;
+        return q + q + 1;
+      }
+    }
+
+    /** Returns the integer part of the square root of x. */
+    function int sqrt(int x) {
+      var int i, res, tmp, tmp2;
+      if (x < 0) {
+        do Sys.error(4);
+        return 0;
+      }
+      let i = 7;
+      let res = 0;
+      while (~(i < 0)) {
+        let tmp = res + _powerOfTwo[i];
+        let tmp2 = tmp * tmp;
+        if (~(tmp2 > x) & (tmp2 > 0)) {
+          let res = tmp;
+        }
+        let i = i - 1;
+      }
+      return res;
+    }
+
+    /** Returns the greater number. */
+    function int max(int a, int b) {
+      if (a < b) {
+        return b;
+      } else {
+        return a;
+      }
+    }
+
+    /** Returns the smaller number. */
+    function int min(int a, int b) {
+      if (a < b) {
+        return a;
+      } else {
+        return b;
+      }
+    }
+
+    /** Returns i-th bit of number x. */
+    function boolean _bit(int x, int i) {
+      return ~((x & _powerOfTwo[i]) = 0);
+    }
+}

@@ -1,0 +1,86 @@
+#! /usr/bin/env ruby
+
+require File.dirname(__FILE__) + "/CodeWriter"
+require File.dirname(__FILE__) + "/Parser"
+require "pathname"
+require "set"
+
+input_name = ARGV[0]
+append_bootstrap = true           # Disable this option if you write bootstrap explicitly.
+optimize_unused_functions = true  # Disable this option if generated .asm is broken.
+
+if File.directory?(input_name)
+  output_name = Pathname(input_name).join(Pathname(input_name).realpath.basename.to_s + ".asm").to_s
+  files = Pathname(input_name).children.map { |p| p.to_s }.select { |f| f.end_with? ".vm" }
+elsif File.file?(input_name) && File.extname(input_name) == ".vm"
+  output_name = Pathname(input_name).sub_ext(".asm").to_s
+  files = [input_name]
+  optimize_unused_functions = false
+end
+
+if files.count == 0
+  puts "vmtl requires valid file or directory name."
+  return
+end
+
+if optimize_unused_functions
+  call_tree = {}
+  called_functions = Set.new
+  files.each do |file_name|
+    file = File.open(file_name, "r")
+    parser = Parser.new(file)
+    function_name = ""
+    call_tree[function_name] = []
+    while parser.hasMoreCommands
+      parser.advance
+      case parser.commandType
+      when :C_FUNCTION then
+        call_tree[function_name].uniq!
+        function_name = parser.arg1
+        call_tree[function_name] = []
+      when :C_CALL then
+        call_tree[function_name].push parser.arg1
+      end
+    end
+    file.close
+  end
+  queue = ["Sys.init"]
+  while queue.count > 0
+    f = queue.shift
+    next if called_functions.include? f
+    called_functions.add f
+    queue.concat call_tree[f].reject { |g| called_functions.include? g }
+  end
+end
+
+writer = CodeWriter.new(output_name)
+writer.writeInit if append_bootstrap
+
+files.each do |file_name|
+  file = File.open(file_name, "r")
+  parser = Parser.new(file)
+  writer.setFileName(File.basename(file_name, ".vm"))
+  is_unused_function = false
+  while parser.hasMoreCommands
+    parser.advance
+    commandType = parser.commandType
+    if commandType == :C_FUNCTION
+      is_unused_function = optimize_unused_functions && !(called_functions.include? parser.arg1)
+      writer.writeFunction parser.arg1, parser.arg2 if !is_unused_function
+    elsif !is_unused_function
+      case commandType
+      when :C_ARITHMETIC then writer.writeArithmetic parser.arg1
+      when :C_PUSH then writer.writePushPop :C_PUSH, parser.arg1, parser.arg2
+      when :C_POP then writer.writePushPop :C_POP, parser.arg1, parser.arg2
+      when :C_LABEL then writer.writeLabel parser.arg1
+      when :C_GOTO then writer.writeGoto parser.arg1
+      when :C_IF then writer.writeIf parser.arg1
+      when :C_RETURN then writer.writeReturn
+      when :C_CALL then writer.writeCall parser.arg1, parser.arg2
+      end
+    end
+  end
+  file.close
+end
+
+writer.close

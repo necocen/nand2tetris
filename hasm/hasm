@@ -1,0 +1,53 @@
+#! /usr/bin/env ruby
+
+require File.dirname(__FILE__) + "/Code"
+require File.dirname(__FILE__) + "/Parser"
+require "pathname"
+
+filename = ARGV[0]
+
+asm = File.read(filename)
+
+# 1st path: expanding line symbols
+parser = Parser.new(asm)
+lineNumber = 0
+# predefined symbols
+symbols = {"SP" => 0, "LCL" => 1, "ARG" => 2, "THIS" => 3, "THAT" => 4, "SCREEN" => 0x4000, "KBD" => 0x6000}
+16.times { |i| symbols["R#{i}"] = i }
+
+while parser.hasMoreCommands
+  parser.advance
+  case parser.commandType
+  when :L_COMMAND then
+    symbols[parser.symbol] = lineNumber # add symbol
+  else
+    lineNumber += 1 # increment line number
+  end
+end
+
+# 2nd path: expanding variables and generating codes
+parser = Parser.new(asm)
+bytes = []
+variable_ptr = 16
+while parser.hasMoreCommands
+  parser.advance
+  case parser.commandType
+  when :A_COMMAND then
+    symbol = parser.symbol
+    if symbol =~ /^\d+$/ # number literal
+      bytes.push("%016b"%symbol.to_i)
+    elsif symbols.has_key?(symbol) # line symbol or registered variable
+      bytes.push("%016b"%symbols[symbol])
+    else # new variable
+      symbols[symbol] = variable_ptr
+      bytes.push("%016b"%symbols[symbol])
+      variable_ptr += 1
+    end
+  when :C_COMMAND then
+    # C command
+    bytes.push("111" + Code.comp(parser.comp) + Code.dest(parser.dest) + Code.jump(parser.jump))
+  end
+end
+
+outputname = Pathname(filename).sub_ext(".hack").to_s
+File.write(outputname, bytes.map { |line| line + "\n" }.join)

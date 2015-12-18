@@ -1,0 +1,25 @@
+#! /usr/bin/env ruby
+
+require "pathname"
+require File.dirname(__FILE__) + "/CompilationEngine"
+
+input_name = ARGV[0]
+
+if File.directory?(input_name)
+  files = Pathname(input_name).children.map { |p| p.to_s }.select { |f| f.end_with? ".jack" }
+elsif File.file?(input_name) && File.extname(input_name) == ".jack"
+  files = [input_name]
+end
+
+files.each do |file_name|
+  tree_name = Pathname(file_name).sub_ext(".jack.xml").to_s
+  output_name = Pathname(file_name).sub_ext(".vm").to_s
+  file = File.open(file_name, "r")
+  treefile = File.open(tree_name, "w")
+  outputfile = File.open(output_name, "w")
+  engine = CompilationEngine.new(file, treefile, outputfile)
+  engine.compileClass
+  file.close
+  treefile.close
+  outputfile.close
+end

@@ -1,0 +1,121 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/Screen.jack
+
+/**
+ * Graphic screen library.
+ */
+class Screen {
+
+    static int _screenHead;
+    static int _screenWidth;
+    static int _screenHeight;
+    static boolean _color;
+    static Array _powerOfTwo;
+
+    /** Initializes the Screen. */
+    function void init() {
+      var int i, p;
+      let _screenHead = 16384;
+      let _screenWidth = 512 / 16;
+      let _screenHeight = 256;
+      let _color = true;
+      let _powerOfTwo = Array.new(16);
+      let p = 1;
+      while(i < 16) {
+        let _powerOfTwo[i] = p;
+        let p = p + p;
+        let i = i + 1;
+      }
+      return;
+    }
+
+    /** Erases the whole screen. */
+    function void clearScreen() {
+      var int i, j;
+      let i = 0;
+      while(i < _screenHeight) {
+        let j = 0;
+        while(j < _screenWidth) {
+          do Memory.poke(_screenHead + (i * _screenWidth) + j, 0);
+          let j = j + 1;
+        }
+        let i = i + 1;
+      }
+      return;
+    }
+
+    /** Sets the color to be used in further draw commands
+     *  where white = false, black = true. */
+    function void setColor(boolean b) {
+      let _color = b;
+      return;
+    }
+
+    /** Draws the (x, y) pixel. */
+    function void drawPixel(int x, int y) {
+      var int p, m;
+      let p = _screenHead + (y * _screenWidth) + (x / 16);
+      let m = _powerOfTwo[x - ((x / 16) * 16)];
+      if (_color) {
+        do Memory.poke(p, Memory.peek(p) | m);
+      } else {
+        do Memory.poke(p, Memory.peek(p) & (~m));
+      }
+      return;
+    }
+
+    /** Draws a line from (x1, y1) to (x2, y2). */
+    function void drawLine(int x1, int y1, int x2, int y2) {
+      var int dx, dy, sx, sy, e, e2;
+      let dx = Math.abs(x2 - x1);
+      let dy = Math.abs(y2 - y1);
+      if (x1 < x2) { let sx = 1; } else { let sx = -1; }
+      if (y1 < y2) { let sy = 1; } else { let sy = -1; }
+      let e = dx - dy;
+
+      while (true) {
+        do Screen.drawPixel(x1, y1);
+        if ((x1 = x2) & (y1 = y2)) { return; }
+        let e2 = 2 * e;
+        if (e2 > -dy) {
+          let e = e - dy;
+          let x1 = x1 + sx;
+        }
+        if (e2 < dx) {
+          let e = e + dx;
+          let y1 = y1 + sy;
+        }
+      }
+      return;
+    }
+
+    /** Draws a filled rectangle where the top left corner
+     *  is (x1, y1) and the bottom right corner is (x2, y2). */
+    function void drawRectangle(int x1, int y1, int x2, int y2) {
+      var int i, j;
+      let i = x1;
+      while(~(i > x2)) {
+        let j = y1;
+        while(~(j > y2)) {
+          do Screen.drawPixel(i, j);
+          let j = j + 1;
+        }
+        let i = i + 1;
+      }
+      return;
+    }
+
+    /** Draws a filled circle of radius r around (cx, cy). */
+    function void drawCircle(int cx, int cy, int r) {
+      var int dy, s;
+      let dy = -r;
+      while (~(dy > r)) {
+        let s = Math.sqrt((r * r) - (dy * dy));
+        do Screen.drawLine(cx - s, cy + dy, cx + s, cy + dy);
+        let dy = dy + 1;
+      }
+      return;
+    }
+}
